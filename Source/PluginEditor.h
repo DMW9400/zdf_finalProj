@@ -5,6 +5,7 @@
 
   ==============================================================================
 */
+//PluginEditor.h
 
 #pragma once
 
@@ -17,7 +18,11 @@
 class ZDFAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
-    ZDFAudioProcessorEditor (ZDFAudioProcessor&);
+    ZDFAudioProcessorEditor (ZDFAudioProcessor& p);
+//    : juce::AudioProcessorEditor(&p),
+//    audioProcessor(p){
+//        setSize(400,300);
+//    }
     ~ZDFAudioProcessorEditor() override;
 
     //==============================================================================

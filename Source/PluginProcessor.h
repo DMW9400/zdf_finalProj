@@ -6,6 +6,8 @@
   ==============================================================================
 */
 
+//PluginProcessor.h
+
 #pragma once
 
 #include <JuceHeader.h>
@@ -52,8 +54,18 @@ public:
     //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+    juce::AudioProcessorValueTreeState apvts;
 
 private:
+    double sampleRate = 44100.0;
+    double wc = 2.0 * M_PI * 1000.0; // cutoff in rad/s
+    double nonlinearParam = 0.5;     // diode parameter
+
+    double vPrev = 0.0;       // previous state
+    double xPrev = 0.0;       // previous input
+
+    void solveState(double x);
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ZDFAudioProcessor)
 };

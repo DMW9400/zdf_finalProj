@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="plInFd" name="ZDF" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginVST3Category="Filter,Fx"
+              pluginFormats="buildVST3">
   <MAINGROUP id="vI1ZWU" name="ZDF">
     <GROUP id="{50F0715D-8CA7-6530-C915-44929E9E982F}" name="Source">
       <FILE id="tMW56t" name="PluginProcessor.cpp" compile="1" resource="0"
