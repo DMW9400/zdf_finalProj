@@ -57,7 +57,7 @@ public:
     juce::AudioProcessorValueTreeState apvts;
 
 private:
-    double sampleRate = 44100.0;
+    double sr = 44100.0;
     double wc = 2.0 * M_PI * 1000.0; // cutoff in rad/s
     double nonlinearParam = 0.5;     // diode parameter
 

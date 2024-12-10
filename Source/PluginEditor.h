@@ -19,10 +19,7 @@ class ZDFAudioProcessorEditor  : public juce::AudioProcessorEditor
 {
 public:
     ZDFAudioProcessorEditor (ZDFAudioProcessor& p);
-//    : juce::AudioProcessorEditor(&p),
-//    audioProcessor(p){
-//        setSize(400,300);
-//    }
+    
     ~ZDFAudioProcessorEditor() override;
 
     //==============================================================================
