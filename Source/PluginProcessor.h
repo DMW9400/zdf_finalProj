@@ -59,18 +59,13 @@ public:
 private:
     double sr = 44100.0;
     double wc = 2.0 * juce::MathConstants<double>::pi * 1000.0;
-    double nonlinearParam = 0.5;     // diode parameter
 
     double vPrev[2] = {0.0, 0.0};
     double xPrev[2] = {0.0, 0.0};
 
     double vPrev2[2] = {0.0, 0.0};
     double xPrev2[2] = {0.0, 0.0};
-//    Smoothed parameters
-    juce::SmoothedValue<float> smoothedCutoff;
-    juce::SmoothedValue<float> smoothedResonance;
 
-    void solveState(double x, double& vCurrent, double xPrevState);
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ZDFAudioProcessor)

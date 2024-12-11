@@ -160,40 +160,65 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 {
 
     float currentCutoff = *apvts.getRawParameterValue("cutoff");
-    wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
+     float currentRes    = *apvts.getRawParameterValue("resonance");
+     double R = (double)currentRes;
+     double resonanceBoost = 1.5;  // Try a value > 1.0
+     R *= resonanceBoost;
 
-    double T = 1.0 / sr;
-    double a = (T * wc) / 2.0;
+     wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
+     double T = 1.0 / sr;
+     double a = (T * wc) / 2.0;
 
-    const int numSamples = buffer.getNumSamples();
-    const int numChannels = buffer.getNumChannels();
+     const int numSamples = buffer.getNumSamples();
+     const int numChannels = buffer.getNumChannels();
+     jassert(numChannels <= 2); // Ensure we don't exceed array bounds
 
-    for (int channel = 0; channel < numChannels; ++channel)
-    {
-        float* data = buffer.getWritePointer(channel);
-        double& vP = vPrev[channel];
-        double& xP = xPrev[channel];
-        double& vP2 = vPrev2[channel];
-        double& xP2 = xPrev2[channel];
+     for (int channel = 0; channel < numChannels; ++channel)
+     {
+         float* data = buffer.getWritePointer(channel);
+         double& vP  = vPrev[channel];
+         double& xP  = xPrev[channel];
+         double& vP2 = vPrev2[channel];
+         double& xP2 = xPrev2[channel];
 
-        for (int i = 0; i < numSamples; ++i)
-        {
-            double x = (double)data[i];
+         for (int i = 0; i < numSamples; ++i)
+         {
+             double x = (double)data[i];
 
-            double vNext = (vP*(1.0 - a) + a*(x + xP)) / (1.0 + a);
-            double firstStage = vNext;
-            vP = vNext;
+             // Setup E, F based on previous states
+             // E = vP*(1 - a) + a*(x + xP)
+             // F = vP2*(1 - a) + a*(vP)
+             // Here careful: vP is the previous v1, so for the second stage input: v1_prev = vP.
+             double E = vP*(1.0 - a) + a*(x + xP);
+             double F = vP2*(1.0 - a) + a*(vP);
 
-            double vNext2 = (vP2*(1.0 - a) + a*(firstStage + xP2)) / (1.0 + a);
-            double secondStage = vNext2;
-            vP2 = vNext2;
+             // Matrix coefficients:
+             // [ (1+a)  (-aR) ] [ v1 ] = [ E ]
+             // [  -a     (1+a) ] [ v2 ]   [ F ]
+             double A = 1.0 + a;
+             double B = -a*R;
+             double C = -a;
+             double D = 1.0 + a;
 
-            data[i] = (float)secondStage;
+             double Det = A*D - B*C;
+             // = (1+a)*(1+a) - (-aR)*(-a)
+             // = (1+a)^2 - a^2*R
 
-            xP = x;
-            xP2 = firstStage;
-        }
-    }
+             double v1 = (E*D - B*F) / Det;
+             double v2 = (A*F - C*E) / Det;
+
+             double firstStage = v1;
+             double secondStage = v2;
+
+             data[i] = (float)secondStage;
+
+             // Update states:
+             vP = v1;
+             vP2 = v2;
+             xP = x;
+             xP2 = firstStage;
+         }
+     }
 }
 
 juce::AudioProcessorEditor* ZDFAudioProcessor::createEditor()
