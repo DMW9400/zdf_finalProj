@@ -11,6 +11,8 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <Interfaces.h>
+#include <Filter.h>
 
 //==============================================================================
 /**
@@ -69,3 +71,66 @@ private:
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ZDFAudioProcessor)
 };
+
+class VAKorg35Filter : public IFilterBase
+    {
+    public:
+        // --- constructor/destructor
+        VAKorg35Filter();
+        virtual ~VAKorg35Filter() {}
+
+        // --- these match SynthModule names
+        virtual bool reset(double _sampleRate);
+        virtual bool update();
+        virtual FilterOutput* process(double xn);
+        virtual void setFilterParams(double _fc, double _Q);
+        
+        struct VAKorg35Coeffs
+        {
+            // --- filter coefficients
+            double K = 1.0;            ///< beta value, not used
+            double alpha = 0.0;            ///< alpha is (wcT/2)
+            double alpha0 = 1.0;            ///< beta value, not used
+            double g = 1.0;            ///< beta value, not used
+        };
+        // --- set coeffs directly, bypassing coeff calculation
+        void setCoeffs(VAKorg35Coeffs& _coeffs) {
+            coeffs = _coeffs;
+
+            // --- three sync-tuned filters
+            for (uint32_t i = 0; i < KORG_SUBFILTERS; i++)
+            {
+                lpfVAFilters[i].setAlpha(coeffs.alpha);
+                hpfVAFilters[i].setAlpha(coeffs.alpha);
+            }
+
+            // --- set filter beta values
+            double deno = 1.0 + coeffs.g;
+
+            lpfVAFilters[FLT2].setBeta((coeffs.K * (1.0 - coeffs.alpha)) / deno);
+            lpfVAFilters[FLT3].setBeta(-1.0 / deno);
+
+            hpfVAFilters[FLT2].setBeta(-coeffs.alpha / deno);
+            hpfVAFilters[FLT3].setBeta(1.0 / deno);
+        //    hpfVAFilters[FLT3].setBeta(lpfVAFilters[FLT3].getBeta);
+        }
+
+        void copyCoeffs(VAKorg35Filter& destination) {
+            destination.setCoeffs(coeffs);
+        }
+
+    protected:
+        FilterOutput output;
+        VA1Filter lpfVAFilters[KORG_SUBFILTERS];
+        VA1Filter hpfVAFilters[KORG_SUBFILTERS];
+        double sampleRate = 44100.0;                ///< current sample rate
+        double halfSamplePeriod = 1.0;
+        double fc = 0.0;
+
+        // --- filter coefficients
+        VAKorg35Coeffs coeffs;
+
+        //double K = 0.0;
+        //double alpha = 0.0;            ///< alpha is (wcT/2)
+        //double alpha0 = 0.0;        ///< input scalar, correct delay-free loop
+    };
