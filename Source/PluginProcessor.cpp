@@ -159,18 +159,18 @@ bool ZDFAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     float currentCutoff = *apvts.getRawParameterValue("cutoff");
-        float currentRes    = *apvts.getRawParameterValue("resonance");
+//        float currentRes    = *apvts.getRawParameterValue("resonance");
 
-        // Increase max Q for stronger resonance peaks
-    double shapedParam = std::pow(currentRes, 0.5);
-//        double Q = 0.5 + currentRes * 799.5; // Q now ranges from 0.5 to ~50
-    double Q = 1.0 + 99.0 * shapedParam;
-    double R = 1.0 - (1.0 / Q);
-//        double R = 1.0 - (1.0 / (Q));
+//    double q = std::pow(currentRes, 0.5);
+//    double Q = 1.0 + 99.0 * shapedParam;
+//    double R = 1.0 - (1.0 / (2.0 * Q));
+//    R *= 2;
+    float param = *apvts.getRawParameterValue("resonance");
+    // Map linearly from [0,1] to [1,100] via exponential:
+    double Q = std::exp(std::log(100.0)*param); // Q=1 at param=0, Q=100 at param=1
 
-
-        // Additional scaling to increase resonance intensity
-        R *= 2;
+    double R = 1.0 - (1.0/(Q));
+    R *= 1.8; // scale as needed
 
         // Relax the clamp or keep it high but not too restrictive
 //        R = std::min(R, 0.99999);
