@@ -5,15 +5,12 @@
               pluginFormats="buildVST3">
   <MAINGROUP id="vI1ZWU" name="ZDF">
     <GROUP id="{50F0715D-8CA7-6530-C915-44929E9E982F}" name="Source">
-      <FILE id="xyIar8" name="Filter.h" compile="0" resource="0" file="Source/Filter.h"/>
-      <FILE id="EvkpX8" name="Filter.cpp" compile="1" resource="0" file="Source/Filter.cpp"/>
       <FILE id="tMW56t" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="fhZcFg" name="PluginProcessor.h" compile="0" resource="0"
             file="Source/PluginProcessor.h"/>
       <FILE id="A9Wrri" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
-      <FILE id="Ltgq5w" name="Interfaces.h" compile="0" resource="0" file="Source/Interfaces.h"/>
       <FILE id="CS8BJ2" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
     </GROUP>
   </MAINGROUP>
