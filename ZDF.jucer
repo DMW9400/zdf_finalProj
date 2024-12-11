@@ -6,6 +6,7 @@
   <MAINGROUP id="vI1ZWU" name="ZDF">
     <GROUP id="{50F0715D-8CA7-6530-C915-44929E9E982F}" name="Source">
       <FILE id="xyIar8" name="Filter.h" compile="0" resource="0" file="Source/Filter.h"/>
+      <FILE id="EvkpX8" name="Filter.cpp" compile="1" resource="0" file="Source/Filter.cpp"/>
       <FILE id="tMW56t" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="fhZcFg" name="PluginProcessor.h" compile="0" resource="0"
