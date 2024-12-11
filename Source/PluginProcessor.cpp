@@ -27,6 +27,14 @@ ZDFAudioProcessor::ZDFAudioProcessor()
                         })
 #endif
 {
+    // Initialize states to 0
+    for (int c = 0; c < 2; ++c)
+    {
+        vPrev[c]  = 0.0;
+        xPrev[c]  = 0.0;
+        vPrev2[c] = 0.0;
+        xPrev2[c] = 0.0;
+    }
 }
 
 ZDFAudioProcessor::~ZDFAudioProcessor()
@@ -150,39 +158,7 @@ bool ZDFAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 
 void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-//    // Smooth parameters
-//    smoothedCutoff.setTargetValue(*apvts.getRawParameterValue("cutoff"));
-//    smoothedResonance.setTargetValue(*apvts.getRawParameterValue("resonance"));
-//
-//    const int numSamples = buffer.getNumSamples();
-//    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
-//    {
-//        float* data = buffer.getWritePointer(channel);
-//        for (int i = 0; i < numSamples; ++i)
-//        {
-//            float currentCutoff = smoothedCutoff.getNextValue();
-//            float currentRes = smoothedResonance.getNextValue();
-//
-//            wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
-//            nonlinearParam = (double)currentRes;
-//
-//            double x = (double)data[i];
-//
-//            // First stage
-//            solveState(x, vPrev, xPrev);
-//            double firstStage = vPrev;
-//
-//            // Second stage
-//            solveState(firstStage, vPrev2, xPrev2);
-//            double secondStage = vPrev2;
-//
-//            data[i] = (float)secondStage;
-//
-//            // Update previous inputs
-//            xPrev = x;
-//            xPrev2 = firstStage;
-//        }
-//    }
+
     float currentCutoff = *apvts.getRawParameterValue("cutoff");
     wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
 
@@ -219,60 +195,6 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         }
     }
 }
-
-//void ZDFAudioProcessor::solveState(double x, double& vCurrent, double xPrevState)
-//{
-//    double T = 1.0 / sr;
-//    double vGuess = vCurrent;
-//
-//    // Gentler nonlinear function than diode: soft clipping via tanh
-//    auto nonlinear = [this](double v)
-//    {
-//        // Scale the input to tanh for a mild saturation
-//        double drive = nonlinearParam * 0;
-//        double scaledV = v * .5;
-//        return std::tanh(drive * scaledV);
-//    };
-//
-//    // Equation based on trapezoidal integration:
-//    // v is the new state, vCurrent is old state
-//    // Using a nonlinear function in place of diode
-//    auto F = [&](double v)
-//    {
-//        double termNew = (x - v - nonlinear(v));
-//        double termOld = (xPrevState - vCurrent - nonlinear(vCurrent));
-//        return (v - vCurrent) - (T * wc / 2.0) * (termNew + termOld);
-//    };
-//
-//    auto dFdv = [&](double v)
-//    {
-//        // derivative of tanh(drive*v) w.r.t. v is drive * sech(drive*v)^2
-//        double drive = nonlinearParam * 0;
-//        double sech2 = 1.0 / std::cosh(drive * v);
-//        sech2 = sech2 * sech2; // sech^2(x)
-//        double nonlinearDeriv = drive * sech2;
-//
-//        return 1.0 - (T * wc / 2.0)*(-1.0 - nonlinearDeriv);
-//    };
-//
-//    const int maxIterations = 10;
-//    const double tol = 1e-9;
-//
-//    for (int iter = 0; iter < maxIterations; ++iter)
-//    {
-//        double val = F(vGuess);
-//        double deriv = dFdv(vGuess);
-//        if (std::abs(deriv) < 1e-14)
-//            break; // Avoid division by zero
-//
-//        double delta = val / deriv;
-//        vGuess -= delta;
-//        if (std::abs(delta) < tol)
-//            break;
-//    }
-//
-//    vCurrent = vGuess;
-//}
 
 juce::AudioProcessorEditor* ZDFAudioProcessor::createEditor()
 {
