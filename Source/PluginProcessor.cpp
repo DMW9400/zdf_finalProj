@@ -158,73 +158,68 @@ bool ZDFAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 
 void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-
     float currentCutoff = *apvts.getRawParameterValue("cutoff");
-//     float currentRes    = *apvts.getRawParameterValue("resonance");
-//     double R = (double)currentRes;
-//     double resonanceBoost = 1.5;  // Try a value > 1.0
-//     R *= resonanceBoost;
+        float currentRes    = *apvts.getRawParameterValue("resonance");
 
-    float currentRes = *apvts.getRawParameterValue("resonance");
-    // Map resonance [0,1] -> Q [0.5,10]
-    double Q = 0.5 + currentRes * 9.5;
-    double R = 1.0 - (1.0 / (2.0 * Q));
-    R = std::min(R, 0.99); // prevent hitting extreme instability
+        // Increase max Q for stronger resonance peaks
+    double shapedParam = std::pow(currentRes, 0.5);
+//        double Q = 0.5 + currentRes * 799.5; // Q now ranges from 0.5 to ~50
+    double Q = 1.0 + 99.0 * shapedParam;
+    double R = 1.0 - (1.0 / Q);
+//        double R = 1.0 - (1.0 / (Q));
 
-    wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
-    double T = 1.0 / sr;
-    double a = (T * wc) / 2.0;
 
-    const int numSamples = buffer.getNumSamples();
-    const int numChannels = buffer.getNumChannels();
-    jassert(numChannels <= 2); // Ensure we don't exceed array bounds
+        // Additional scaling to increase resonance intensity
+        R *= 2;
 
-    for (int channel = 0; channel < numChannels; ++channel)
-    {
-     float* data = buffer.getWritePointer(channel);
-     double& vP  = vPrev[channel];
-     double& xP  = xPrev[channel];
-     double& vP2 = vPrev2[channel];
-     double& xP2 = xPrev2[channel];
+        // Relax the clamp or keep it high but not too restrictive
+//        R = std::min(R, 0.99999);
 
-     for (int i = 0; i < numSamples; ++i)
-     {
-         double x = (double)data[i];
+        wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
+        double T = 1.0 / sr;
+        double a = (T * wc) / 2.0;
 
-         // Setup E, F based on previous states
-         // E = vP*(1 - a) + a*(x + xP)
-         // F = vP2*(1 - a) + a*(vP)
-         // Here careful: vP is the previous v1, so for the second stage input: v1_prev = vP.
-         double E = vP*(1.0 - a) + a*(x + xP);
-         double F = vP2*(1.0 - a) + a*(vP);
+        const int numSamples = buffer.getNumSamples();
+        const int numChannels = buffer.getNumChannels();
+        jassert(numChannels <= 2);
 
-         // Matrix coefficients:
-         // [ (1+a)  (-aR) ] [ v1 ] = [ E ]
-         // [  -a     (1+a) ] [ v2 ]   [ F ]
-         double A = 1.0 + a;
-         double B = -a*R;
-         double C = -a;
-         double D = 1.0 + a;
+        for (int channel = 0; channel < numChannels; ++channel)
+        {
+            float* data = buffer.getWritePointer(channel);
+            double& vP  = vPrev[channel];
+            double& xP  = xPrev[channel];
+            double& vP2 = vPrev2[channel];
+            double& xP2 = xPrev2[channel];
 
-         double Det = A*D - B*C;
-         // = (1+a)*(1+a) - (-aR)*(-a)
-         // = (1+a)^2 - a^2*R
+            for (int i = 0; i < numSamples; ++i)
+            {
+                double x = (double)data[i];
 
-         double v1 = (E*D - B*F) / Det;
-         double v2 = (A*F - C*E) / Det;
+                // Compute E and F
+                double E = vP*(1.0 - a) + a*(x + xP);
+                double F = vP2*(1.0 - a) + a*(vP);
 
-         double firstStage = v1;
-         double secondStage = v2;
+                // Solve linear system:
+                double A = 1.0 + a;
+                double B = -a*R;
+                double C = -a;
+                double D = 1.0 + a;
 
-         data[i] = (float)secondStage;
+                double Det = A*D - B*C;
 
-         // Update states:
-         vP = v1;
-         vP2 = v2;
-         xP = x;
-         xP2 = firstStage;
-     }
-    }
+                double v1 = (E*D - B*F) / Det;
+                double v2 = (A*F - C*E) / Det;
+
+                double secondStage = v2;
+                data[i] = (float)secondStage;
+
+                // Update states:
+                vP = v1;
+                vP2 = v2;
+                xP = x;
+                xP2 = v1; // firstStage = v1
+            }
+        }
 }
 
 juce::AudioProcessorEditor* ZDFAudioProcessor::createEditor()
