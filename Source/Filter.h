@@ -26,9 +26,11 @@ struct VA1Coeffs
 const int KORG_SUBFILTERS = 3;
 enum { FLT1, FLT2, FLT3, FLT4 };
 
+
 class VA1Filter : public IFilterBase
     {
     public:
+
         // --- constructor/destructor
         VA1Filter();
         virtual ~VA1Filter() {}
@@ -72,12 +74,25 @@ class VAKorg35Filter : public IFilterBase
         // --- constructor/destructor
         VAKorg35Filter();
         virtual ~VAKorg35Filter() {}
+        
+        const double kTwoPi = 2.0*3.14159265358979323846264338327950288419716939937510582097494459230781640628620899;
 
         // --- these match SynthModule names
         virtual bool reset(double _sampleRate);
         virtual bool update();
         virtual FilterOutput* process(double xn);
         virtual void setFilterParams(double _fc, double _Q);
+        inline void boundValue(double& value, double minValue, double maxValue)
+        {
+            const double t = value < minValue ? minValue : value;
+            value = t > maxValue ? maxValue : t;
+        }
+        inline void mapDoubleValue(double& value, double min, double minMap, double slope)
+        {
+            // --- bound to limits
+            value = minMap + slope * (value - min);
+        }
+
         
         struct VAKorg35Coeffs
         {

@@ -9,10 +9,12 @@
 */
 
 #include "Filter.h"
+#include <cmath>
 
 VAKorg35Filter::VAKorg35Filter() {}
 
-    /** reset members to initialized state */
+
+        /** reset members to initialized state */
     bool VAKorg35Filter::reset(double _sampleRate)
     {
         sampleRate = _sampleRate;
