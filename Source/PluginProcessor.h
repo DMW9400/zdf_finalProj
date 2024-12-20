@@ -65,6 +65,9 @@ private:
 
     double vPrev2[2] = {0.0, 0.0};
     double xPrev2[2] = {0.0, 0.0};
+    
+    double vHP[2] = {0.0, 0.0}; // previous HP output per channel
+    double xHP[2] = {0.0, 0.0}; // previous HP input per channel
 
 
     //==============================================================================

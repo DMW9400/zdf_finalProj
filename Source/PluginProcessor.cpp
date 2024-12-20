@@ -23,7 +23,8 @@ ZDFAudioProcessor::ZDFAudioProcessor()
                      #endif
                        ), apvts(*this, nullptr, "PARAMETERS", {
          std::make_unique<juce::AudioParameterFloat>("cutoff", "Cutoff", 20.0f, 20000.0f, 1000.0f),
-         std::make_unique<juce::AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f)
+         std::make_unique<juce::AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f),
+         std::make_unique<juce::AudioParameterFloat>("hpCutoff", "HP Cutoff", 20.0f, 20000.0f, 200.0f)
                         })
 #endif
 {
@@ -113,6 +114,8 @@ void ZDFAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
         xPrev[i] = 0.0;
         vPrev2[i] = 0.0;
         xPrev2[i] = 0.0;
+        vHP[i] = 0.0;
+        xHP[i] = 0.0;
     }
 }
 
@@ -150,69 +153,90 @@ bool ZDFAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 
 void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+//    --- Low-Pass Parameters ----
     float currentCutoff = *apvts.getRawParameterValue("cutoff");
     float param = *apvts.getRawParameterValue("resonance");
-
 //    Log scale the Q value for smoother resonance responce
     double Q = std::exp(std::log(100.0)*param); // Q=1 at param=0, Q=100 at param=1
-
 //   Calculate resonance based on the (currently not well-functioning) Q value to better emphasize cutoff freq
     double R = 1.0 - (1.0/(Q));
     R *= 1.8; // scale as needed
 //        Convert cutoff frequency to angular frequency - radians per second - the preferred nomenclature of the following filter formulae
-        wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
+    wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
 //    Determine the sampling period
-        double T = 1.0 / sr;
+    double T = 1.0 / sr;
 //   Coefficient for trapezoidal integration - essential for the linear equations below
-        double a = (T * wc) / 2.0;
+    double a = (T * wc) / 2.0;
+    
+//   ----- High-Pass Parameters -----
+    float hpCutoff = *apvts.getRawParameterValue("hpCutoff");
+    double wcHP = 2.0 * juce::MathConstants<double>::pi * (double)hpCutoff;
+    double aHP = (T * wcHP) / 2.0;
+
+    
 //   Get samples from the buffer
-        const int numSamples = buffer.getNumSamples();
-        const int numChannels = buffer.getNumChannels();
+    const int numSamples = buffer.getNumSamples();
+    const int numChannels = buffer.getNumChannels();
 //    Ensure that we are operating in stereo
-        jassert(numChannels <= 2);
+    jassert(numChannels <= 2);
 //    Loop through the channels to generate current sample per-channel
-        for (int channel = 0; channel < numChannels; ++channel)
+    for (int channel = 0; channel < numChannels; ++channel)
+    {
+        float* data = buffer.getWritePointer(channel);
+//    Set the LP filter values based on prior states from the channel's most recent sample
+        double& vP  = vPrev[channel];
+        double& xP  = xPrev[channel];
+        double& vP2 = vPrev2[channel];
+        double& xP2 = xPrev2[channel];
+        
+        // HP states
+        double& vHpP = vHP[channel];
+        double& xHpP = xHP[channel];
+
+        for (int i = 0; i < numSamples; ++i)
         {
-            float* data = buffer.getWritePointer(channel);
-//            Set the filter values based on prior states from the channel's most recent sample
-            double& vP  = vPrev[channel];
-            double& xP  = xPrev[channel];
-            double& vP2 = vPrev2[channel];
-            double& xP2 = xPrev2[channel];
+            double x = (double)data[i];
+        
+            // --- High-Pass Stage (No Resonance) ---
+            // v(n) = [ v(n-1)(1 - aHP) + aHP(x(n) - x(n-1)) ] / (1 + aHP)
+            double vHP_next = (vHpP*(1.0 - aHP) + aHP*(x - xHpP)) / (1.0 + aHP);
+            
+            // Update HP states
+            vHpP = vHP_next;
+            xHpP = x;
 
-            for (int i = 0; i < numSamples; ++i)
-            {
-                double x = (double)data[i];
+            // The HP output is vHP_next
+            double hpOutput = vHP_next;
 
-                // Compute E and F - the "right hand sides" of the discretized filter equations
+            // Compute E and F - the "right hand sides" of the discretized filter equations
 //                This is where the trapezoidal integration comes into play
 //                Trapezoidal rule depends on both current and previous inputs
-                double E = vP*(1.0 - a) + a*(x + xP);
-                double F = vP2*(1.0 - a) + a*(vP);
+            double E = vP*(1.0 - a) + a*(hpOutput + xP);
+            double F = vP2*(1.0 - a) + a*(vP);
 
-                // Solve linear system:
+            // Solve linear system:
 //                These four variables form the coefficient matrix
-                double A = 1.0 + a;
-                double B = -a*R;
-                double C = -a;
-                double D = 1.0 + a;
+            double A = 1.0 + a;
+            double B = -a*R;
+            double C = -a;
+            double D = 1.0 + a;
 //
-                double Det = A*D - B*C;
+            double Det = A*D - B*C;
 //              Set current values for the first and second stage integrators
 //              Equations solved directly for the current sample -> no one-sample delay feedback loop
-                double v1 = (E*D - B*F) / Det;
-                double v2 = (A*F - C*E) / Det;
+            double v1 = (E*D - B*F) / Det;
+            double v2 = (A*F - C*E) / Det;
 //              The output of the second stage is used for the final output of the filter in this sample
-                double secondStage = v2;
-                data[i] = (float)secondStage;
+            double secondStage = v2;
+            data[i] = (float)secondStage;
 
-                // Update states:
-                vP = v1;
-                vP2 = v2;
-                xP = x;
-                xP2 = v1; // firstStage = v1
-            }
+            // Update LP states:
+            vP = v1;
+            vP2 = v2;
+            xP = x;
+            xP2 = v1; // firstStage = v1
         }
+    }
 }
 
 juce::AudioProcessorEditor* ZDFAudioProcessor::createEditor()
