@@ -107,14 +107,6 @@ void ZDFAudioProcessor::changeProgramName (int index, const juce::String& newNam
 void ZDFAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
-//    wc = 2.0 * M_PI * (*apvts.getRawParameterValue("cutoff"));
-//    nonlinearParam = *apvts.getRawParameterValue("resonance");
-//    
-//    smoothedCutoff.reset(sr, 0.05);
-//    smoothedCutoff.setCurrentAndTargetValue(*apvts.getRawParameterValue("cutoff"));
-//
-//    smoothedResonance.reset(sr, 0.05);
-//    smoothedResonance.setCurrentAndTargetValue(*apvts.getRawParameterValue("resonance"));
     for (int i = 0; i < 2; ++i)
     {
         vPrev[i] = 0.0;
@@ -159,33 +151,30 @@ bool ZDFAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) cons
 void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     float currentCutoff = *apvts.getRawParameterValue("cutoff");
-//        float currentRes    = *apvts.getRawParameterValue("resonance");
-
-//    double q = std::pow(currentRes, 0.5);
-//    double Q = 1.0 + 99.0 * shapedParam;
-//    double R = 1.0 - (1.0 / (2.0 * Q));
-//    R *= 2;
     float param = *apvts.getRawParameterValue("resonance");
-    // Map linearly from [0,1] to [1,100] via exponential:
+
+//    Log scale the Q value for smoother resonance responce
     double Q = std::exp(std::log(100.0)*param); // Q=1 at param=0, Q=100 at param=1
 
+//   Calculate resonance based on the (currently not well-functioning) Q value to better emphasize cutoff freq
     double R = 1.0 - (1.0/(Q));
     R *= 1.8; // scale as needed
-
-        // Relax the clamp or keep it high but not too restrictive
-//        R = std::min(R, 0.99999);
-
+//        Convert cutoff frequency to angular frequency - radians per second - the preferred nomenclature of the following filter formulae
         wc = 2.0 * juce::MathConstants<double>::pi * (double)currentCutoff;
+//    Determine the sampling period
         double T = 1.0 / sr;
+//   Coefficient for trapezoidal integration - essential for the linear equations below
         double a = (T * wc) / 2.0;
-
+//   Get samples from the buffer
         const int numSamples = buffer.getNumSamples();
         const int numChannels = buffer.getNumChannels();
+//    Ensure that we are operating in stereo
         jassert(numChannels <= 2);
-
+//    Loop through the channels to generate current sample per-channel
         for (int channel = 0; channel < numChannels; ++channel)
         {
             float* data = buffer.getWritePointer(channel);
+//            Set the filter values based on prior states from the channel's most recent sample
             double& vP  = vPrev[channel];
             double& xP  = xPrev[channel];
             double& vP2 = vPrev2[channel];
@@ -195,21 +184,25 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             {
                 double x = (double)data[i];
 
-                // Compute E and F
+                // Compute E and F - the "right hand sides" of the discretized filter equations
+//                This is where the trapezoidal integration comes into play
+//                Trapezoidal rule depends on both current and previous inputs
                 double E = vP*(1.0 - a) + a*(x + xP);
                 double F = vP2*(1.0 - a) + a*(vP);
 
                 // Solve linear system:
+//                These four variables form the coefficient matrix
                 double A = 1.0 + a;
                 double B = -a*R;
                 double C = -a;
                 double D = 1.0 + a;
-
+//
                 double Det = A*D - B*C;
-
+//              Set current values for the first and second stage integrators
+//              Equations solved directly for the current sample -> no one-sample delay feedback loop
                 double v1 = (E*D - B*F) / Det;
                 double v2 = (A*F - C*E) / Det;
-
+//              The output of the second stage is used for the final output of the filter in this sample
                 double secondStage = v2;
                 data[i] = (float)secondStage;
 
