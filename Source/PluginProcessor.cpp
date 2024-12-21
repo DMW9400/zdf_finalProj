@@ -232,7 +232,7 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
             // Update LP states:
             vP = v1;
             vP2 = v2;
-            xP = x;
+            xP = hpOutput;
             xP2 = v1; // firstStage = v1
         }
     }
