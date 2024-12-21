@@ -197,16 +197,15 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         {
             double x = (double)data[i];
         
-            // --- High-Pass Stage (No Resonance) ---
-            // v(n) = [ v(n-1)(1 - aHP) + aHP(x(n) - x(n-1)) ] / (1 + aHP)
-            double vHP_next = (vHpP*(1.0 - aHP) + aHP*(x - xHpP)) / (1.0 + aHP);
-            
+            // Compute vHP as if it's a low-pass at hpCutoff
+            double vHP_next = (vHpP*(1.0 - aHP) + aHP*(x + xHpP)) / (1.0 + aHP);
             // Update HP states
             vHpP = vHP_next;
             xHpP = x;
 
-            // The HP output is vHP_next
-            double hpOutput = vHP_next;
+            // Now produce high-pass output
+            double hpOutput = x - vHP_next;
+
 
             // Compute E and F - the "right hand sides" of the discretized filter equations
 //                This is where the trapezoidal integration comes into play
