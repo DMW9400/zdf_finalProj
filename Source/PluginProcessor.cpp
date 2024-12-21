@@ -24,7 +24,8 @@ ZDFAudioProcessor::ZDFAudioProcessor()
                        ), apvts(*this, nullptr, "PARAMETERS", {
          std::make_unique<juce::AudioParameterFloat>("cutoff", "Cutoff", 20.0f, 20000.0f, 1000.0f),
          std::make_unique<juce::AudioParameterFloat>("resonance", "Resonance", 0.0f, 1.0f, 0.5f),
-         std::make_unique<juce::AudioParameterFloat>("hpCutoff", "HP Cutoff", 20.0f, 20000.0f, 200.0f)
+         std::make_unique<juce::AudioParameterFloat>("hpCutoff", "HP Cutoff", 20.0f, 20000.0f, 200.0f),
+         std::make_unique<juce::AudioParameterFloat>("drive", "Drive", 0.0f, 2.0f, 0.5f)
                         })
 #endif
 {
@@ -168,6 +169,9 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 //   Coefficient for trapezoidal integration - essential for the linear equations below
     double a = (T * wc) / 2.0;
     
+    // driveParam: how much to push the signal into the tanh saturation
+    float driveParam = *apvts.getRawParameterValue("drive");
+    
 //   ----- High-Pass Parameters -----
     float hpCutoff = *apvts.getRawParameterValue("hpCutoff");
     double wcHP = 2.0 * juce::MathConstants<double>::pi * (double)hpCutoff;
@@ -205,12 +209,15 @@ void ZDFAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
             // Now produce high-pass output
             double hpOutput = x - vHP_next;
-
+            
+            double driveGain = std::pow(10.0, driveParam * 0.5);
+            double drivenHP = std::tanh(driveGain * hpOutput);
+            
 
             // Compute E and F - the "right hand sides" of the discretized filter equations
 //                This is where the trapezoidal integration comes into play
 //                Trapezoidal rule depends on both current and previous inputs
-            double E = vP*(1.0 - a) + a*(hpOutput + xP);
+            double E = vP * (1.0 - a) + a * (drivenHP + xP);
             double F = vP2*(1.0 - a) + a*(vP);
 
             // Solve linear system:
