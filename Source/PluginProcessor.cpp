@@ -264,15 +264,21 @@ bool ZDFAudioProcessor::hasEditor() const
 //==============================================================================
 void ZDFAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    if (auto xmlState = apvts.copyState().createXml())
+    {
+        // 2) Convert it to binary and store in destData
+        copyXmlToBinary(*xmlState, destData);
+    }
 }
 
 void ZDFAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    // 1) Attempt to parse binary data back into an XML object
+    if (auto xmlState = getXmlFromBinary(data, sizeInBytes))
+    {
+        // 2) Replace our current state tree with the one we just loaded
+        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+    }
 }
 
 //==============================================================================
